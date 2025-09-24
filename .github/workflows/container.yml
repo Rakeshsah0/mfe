@@ -1,33 +1,45 @@
-name: deploy-container
+name: Deploy to S3
 
 on:
   push:
     branches:
-      - master
-    paths:
-      - "packages/container/**"
-
-defaults:
-  run:
-    working-directory: packages/container
+      - main
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      # 1. Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - run: npm install
-      - run: npm run build
-
-      # Install AWS CLI v2
-      - name: Install AWS CLI v2
-        uses: aws-actions/setup-aws-cli@v2
+      # 2. Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
-          version: "2.x"
+          node-version: 18
 
-      # Configure AWS credentials
+      # 3. Install dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # 4. Build project & check dist folder
+      - name: Build project and verify output
+        run: |
+          echo "Running build..."
+          npm run build
+          echo "Checking project root files..."
+          ls -lah
+          echo "Checking dist folder..."
+          if [ -d "dist" ]; then
+            ls -lah dist
+          else
+            echo "dist folder not found! Build failed."
+            exit 1
+          fi
+
+      # 5. Configure AWS CLI
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -35,6 +47,24 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # Sync build output to S3
+      # 6. Verify AWS credentials & bucket access
+      - name: Debug AWS setup
+        run: |
+          echo "Checking AWS identity..."
+          aws sts get-caller-identity
+          echo "Listing all S3 buckets..."
+          aws s3 ls
+          echo "Checking specific bucket..."
+          aws s3 ls s3://${{ secrets.AWS_S3_BUCKET_NAME }} || echo "Bucket not found or access denied!"
+
+      # 7. Dry run sync to detect changes & permissions
+      - name: Dry-run S3 sync
+        run: aws s3 sync dist s3://${{ secrets.AWS_S3_BUCKET_NAME }}/container/latest --delete --exact-timestamps --dryrun
+
+      # 8. Actual deploy
       - name: Deploy to S3
-        run: aws s3 sync dist s3://${{ secrets.AWS_S3_BUCKET_NAME }}/container/latest
+        run: aws s3 sync dist s3://${{ secrets.AWS_S3_BUCKET_NAME }}/container/latest --delete --exact-timestamps
+
+      # 9. Verify uploaded files
+      - name: Verify files in S3
+        run: aws s3 ls s3://${{ secrets.AWS_S3_BUCKET_NAME }}/container/latest/
