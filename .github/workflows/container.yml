@@ -1,4 +1,4 @@
-name: Deploy to S3
+name: deploy-container
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
 
       # 3. Install dependencies
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       # 4. Build project & check dist folder
       - name: Build project and verify output
