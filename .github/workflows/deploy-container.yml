@@ -1,21 +1,41 @@
-name: Deploy Container
+name: deploy-container
 
 on:
   push:
     branches:
       - master
+    paths:
+      - "packages/container/**" # only trigger if container changes
 
 jobs:
-  test-secret:
+  deploy:
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: packages/container
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Print secret check
-        run: |
-          if [ "${{ secrets.MY_SECRET }}" = "aalu" ]; then
-            echo "secret matched"
-          else
-            echo "secret does not match"
-          fi
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1 # change if different
+
+      - name: Deploy to S3
+        run: aws s3 sync build/ s3://${{secrets.AWS_S3_BUCKET_NAME}}/container/latest
