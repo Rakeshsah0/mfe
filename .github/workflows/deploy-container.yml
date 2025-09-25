@@ -1,0 +1,21 @@
+name: Deploy Container
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  test-secret:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Print secret check
+        run: |
+          if [ "${{ secrets.MY_SECRET }}" = "aalu" ]; then
+            echo "secret matched"
+          else
+            echo "secret does not match"
+          fi
