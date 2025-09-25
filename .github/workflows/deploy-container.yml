@@ -38,4 +38,4 @@ jobs:
           aws-region: us-east-1 # change if different
 
       - name: Deploy to S3
-        run: aws s3 sync dist/ s3://${{secrets.AWS_S3_BUCKET_NAME}}/container/latest
+        run: aws s3 sync dist/ s3://${{secrets.AWS_S3_BUCKET_NAME}}/container/latest --delete
